@@ -1,0 +1,20 @@
+[project]
+name = "docpipe"
+version = "0.1.0"
+description = "Dataset-agnostic PDF-to-clean-text pipeline: triage, rasterise, cleanup, OCR, normalise, metadata, image-table recovery"
+requires-python = ">=3.11,<3.13"
+dependencies = ["pymupdf", "opencv-python-headless", "numpy", "pillow", "pytesseract", "pyyaml", "jiwer", "rapidfuzz"]
+
+[project.optional-dependencies]
+surya = ["surya-ocr==0.22.1"]
+dev = ["pytest"]
+
+[project.scripts]
+docpipe = "docpipe.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/docpipe"]

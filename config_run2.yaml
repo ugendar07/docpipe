@@ -1,0 +1,4 @@
+project: {dir: ../docpipe_run2}
+languages:
+  ocr: eng
+manifest: {path: null}

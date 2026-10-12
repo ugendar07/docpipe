@@ -1,0 +1,240 @@
+# Generic defaults. Every path is relative to project.dir. User config is deep-merged over this file.
+# Keys marked REQUIRED have no default and must be set by the user config.
+project:
+  dir: .                      # the stages run with this as working directory
+  seed: 0
+
+languages:
+  ocr: null                   # REQUIRED: Tesseract language string for the survey/confidence/image-table passes, e.g. "eng" or "eng+deu"
+  scripts: [latin]            # scripts the pipeline reasons about; the FIRST is the primary script (see docpipe.scripts)
+  codes: {}                   # script -> language code written to outputs; default: the script name itself
+  out_of_scope: []            # scripts whose pages are dropped from the processed text (empty record kept, source `dropped`)
+  out_of_scope_share: 0.3     # share of that script's characters above which a page is out of scope
+
+manifest:
+  path: data/manifest/corpus_manifest.csv   # set null to run without an input manifest
+  columns: {id: ID, file: Local File, url: Direct Download URL, title: Title, year: Year, group: Group, locality: Locality,
+            licence_note: Licence Note, doc_type: Document Type}
+  group_from: folder          # folder = first folder under raw_dir | column = manifest `group` column | none
+
+review:                       # column names in the operator-owned sheets
+  decision_column: "DECISION (fix/drop/accept)"
+  verdict_column: "VERDICT (table/chart/other)"
+  qa_column: "VERDICT (ok/minor/major)"
+
+pipeline:
+  stages: [inventory, triage, rasterise, clean, ocr, language, confidence, normalise, image_tables, image_tables_sheet, image_tables_ocr, image_tables_text, metadata, qa_sample]
+  log: data/interim/logs/run_all.log
+  interpreters: {surya: null, paddle: null}   # engine -> python executable that has the engine installed; null = the current interpreter
+
+inventory:
+  raw_dir: data/raw
+  manifest_out: data/manifest/sources.csv
+  report: reports/inventory.md
+  unmatched_csv: reports/inventory_unmatched.csv
+  match_threshold: 0.85
+
+triage:
+  sources: data/manifest/sources.csv
+  out_dir: data/interim/triage
+  report: reports/triage.md
+  samples_dir: reports/triage_samples
+  seed: 0
+  samples_per_label: 4
+  min_chars: 20
+  review_chars: 200
+  image_scanned_cov: 0.3
+  image_hybrid_cov: 0.8
+  garbage_max: 0.02
+  control_max: 2
+  stray_max: 1
+  stray_glyphs: ""            # characters that mark a broken text layer in YOUR corpus (e.g. "{}" from broken sub/superscript fonts); empty = rule off
+
+rasterise:
+  triage_dir: data/interim/triage
+  sources: data/manifest/sources.csv
+  out_dir: data/interim/pages
+  report: reports/rasterise.md
+  dpi: 300
+  format: png
+  labels: [scanned, hybrid, blank_or_vector]
+  blank_ink_max: 0.0005
+  ink_gray_below: 200
+  estimate_sample: 24
+  seed: 0
+
+language:
+  triage_dir: data/interim/triage
+  pages_index: data/interim/pages/index.jsonl
+  sources: data/manifest/sources.csv
+  out_dir: data/interim/language
+  report: reports/language.md
+  workers: 4
+  primary_below: 0.02         # non-primary script share below this -> the page is labelled with the primary script
+  secondary_above: 0.5        # a non-primary script above this -> labelled with that script; in between -> mixed
+  min_chars: 30
+  validation_sample: 100
+  seed: 0
+
+ocr:
+  raw_dir: data/interim/ocr_raw
+  tesseract: {lang: null, psm: 3}   # lang null -> languages.ocr
+  surya: {seed: 0}
+  paddle: {lang: null}              # REQUIRED if the paddle engine is used
+
+clean:
+  pages_index: data/interim/pages/index.jsonl
+  out_dir: data/interim/pages_clean
+  report: reports/clean.md
+  workers: 4
+  steps: {orientation: true, deskew: false, border: false, denoise: false, shadow: false}
+  osd_min_conf: 8.0
+  osd_max_side: 2000
+  deskew_max_deg: 5.0
+  deskew_min_deg: 0.3
+  deskew_min_gain: 1.05
+  border_dark_below: 60
+  border_dark_frac: 0.9
+  border_max_frac: 0.03
+  border_min_px: 10
+  denoise_h: 5
+  shadow_kernel: 101
+
+score:
+  units: []                   # units to track as protected tokens in the OCR bake-off, e.g. [kg, ha, "%"]
+  terms_file: null            # optional: one protected term per line
+  bootstrap_n: 1000
+  seed: 0
+
+gold:
+  candidates_csv: reports/gold_candidates.csv
+  sources: data/manifest/sources.csv
+  pages_index: data/interim/pages/index.jsonl
+  sheet_prefix: reports/gold_candidates
+  n_candidates: 40
+  language_dir: data/interim/language
+  min_ocr_chars: 600
+  forced: []                  # [[doc_id, page], ...] pages forced into the candidate list
+  seed: 0
+  dir: eval/gold_ocr
+  picks: []                   # see docs/GOLD_SET.md
+
+bakeoff:
+  gold_dir: eval/gold_ocr
+  raw_dir: data/interim/ocr_raw
+  report: reports/bakeoff.md
+  conditions: ["off", "on"]   # off = raw render, on = after imaging.clean
+  max_seconds_per_page: 60
+  engines:
+    tesseract: {enabled: true}
+    surya: {enabled: false}
+
+ocr_corpus:
+  engine: tesseract           # tesseract | surya | paddle (any docpipe.ocr.<name>.Engine)
+  pages_index: data/interim/pages/index.jsonl
+  clean_index: data/interim/pages_clean/index.jsonl
+  out_dir: data/interim/ocr_raw/corpus
+  log: data/interim/logs/ocr_corpus.log
+  max_consecutive_failures: 5
+
+image_tables:
+  manifest: data/manifest/image_tables.csv
+  crop_dir: data/interim/image_tables
+  report: reports/image_tables.md
+  dpi: 300
+  min_pt: 80
+  max_page_frac: 0.85
+  dedup_iou: 0.5
+  lang: null                  # null -> languages.ocr
+  psm: 6
+  conf_min: 40
+  min_words: 3
+  min_numeric: 2
+  min_rows: 3
+  workers: 6
+  sheet_dir: reports/image_tables_sheet
+  sheet_csv: reports/image_tables_review.csv
+  thumb_px: 1100
+
+image_tables_ocr:
+  engine: tesseract           # a table-capable engine (e.g. surya) is needed to get table HTML; tesseract returns text only
+  out_dir: data/interim/ocr_raw/image_tables_corpus
+  text_dir: data/processed/text_image_tables
+  report: reports/image_tables_text.md
+  max_consecutive_failures: 5
+
+confidence:
+  ocr_dir: data/interim/ocr_raw/corpus
+  pages_index: data/interim/pages/index.jsonl
+  out_dir: data/interim/confidence
+  tess_cache: data/interim/confidence_tess
+  report: reports/confidence.md
+  decisions_template: reports/lowconf_decisions.csv   # written once if absent; the operator fills the decision column
+  workers: 4
+  low_conf_below: 0.6
+  empty_chars: 20
+  empty_ink_min: 0.002
+  loop_ngram: 5
+  loop_min: 8
+  loop_word_ratio: 1.5
+  empty_tess_words: 10
+
+normalise:
+  sources: data/manifest/sources.csv
+  triage_dir: data/interim/triage
+  pages_index: data/interim/pages/index.jsonl
+  ocr_dir: data/interim/ocr_raw/corpus
+  language_dir: data/interim/language
+  removed_dir: data/interim/normalise
+  decisions_csv: reports/lowconf_decisions.csv
+  tess_cache: data/interim/confidence_tess
+  confidence_dir: data/interim/confidence
+  out_dir: data/processed/text
+  report: reports/normalise.md
+  text_layer_labels: [born_digital, needs_review]
+  keep_symbols: "⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺₀₁₂₃₄₅₆₇₈₉−%°µ±.,:/"   # characters (besides digits) whose counts normalisation must never change
+  header_edge_lines: 2
+  header_min_pages: 5
+  header_min_ratio: 0.5
+  header_max_len: 100
+  header_pagenum_slack: 10
+  dehyph_min_vocab: 2
+
+metadata:
+  sources: data/manifest/sources.csv
+  text_dir: data/processed/text
+  removed_dir: data/interim/normalise
+  out_csv: data/processed/metadata.csv
+  report: reports/metadata.md
+  seed: 0
+  spot_check: 15
+  entities: {}                # name -> [regex, ...]: terms to detect per document, e.g. {rice: ["\\brice\\b"]}. Empty = no entity detection
+  entity_exclude: null        # optional regex whose matches are blanked before counting (e.g. institute names)
+  entity_min_mentions: 20
+  entity_min_share: 0.05
+  entity_short_min: 5
+  entity_short_density: 2.0
+  locality_ignore: []         # manifest locality values treated as "no locality" (e.g. the name of the whole region)
+  locality_title_pattern: null   # regex with ONE group applied to the title, e.g. "\\b([A-Z][a-z]+) District\\b"
+  doc_type_rules: []          # [{name, title: regex, front: regex|null}], first match wins
+  short_doc: null             # {max_pages: 4, name: leaflet, not_in_front: abstract} or null
+  licence_default: null       # used when the manifest has no licence note for a document
+  year_min: 1990
+  year_max: 2030
+  year_front_pages: 3
+  w_title: 5
+  w_header: 4
+  w_manifest: 6
+  w_front: 1
+  lang_primary_share: 0.95
+  lang_secondary_share: 0.5
+
+qa_sample:
+  text_dir: data/processed/text
+  sources: data/manifest/sources.csv
+  out_dir: reports/qa_sample
+  csv: reports/qa_sample.csv
+  n_text_layer: 10
+  n_ocr: 10
+  seed: 0
+  dpi: 110

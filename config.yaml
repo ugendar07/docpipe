@@ -1,0 +1,8 @@
+project: {dir: .}
+languages:
+  ocr: eng
+manifest: {path: null}
+triage:
+  # 67 pages were rejected as "garbage" at the 0.02 default; all of them are symbol-font bullets/spaces (U+F0B7, U+F020),
+  # share 0.020-0.036, text layer intact. 0.05 sits above the corpus maximum with margin. See reports/gate_report_corpus2.md.
+  garbage_max: 0.05
