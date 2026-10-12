@@ -8,9 +8,9 @@ docpipe run -c config.yaml
 
 ## Results on two corpora
 
-| | Corpus 1: Telangana (source project) | Corpus 2: Maharashtra district plans |
+| | Corpus 1: Telangana (source project) | Corpus 2: Maharashtra |
 |---|---|---|
-| Domain / language | Agriculture documents, English + Telugu (+ Hindi dropped) | Agriculture contingency plans, English only |
+| Domain / language | Agriculture documents, English + Telugu (+ Hindi dropped) | Agriculture documents English only |
 | Documents / pages | 101 / 3,310 | 34 / 1,175 |
 | Input manifest | Yes | None (generated ids) |
 | born_digital / hybrid | 2,499 (75.5%) / 92 (2.8%) | 1,061 (90.3%) / 0 |
