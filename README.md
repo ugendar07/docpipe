@@ -11,7 +11,7 @@ docpipe run -c config.yaml
 | | Corpus 1: Telangana (source project) | Corpus 2: Maharashtra |
 |---|---|---|
 | Domain / language | Agriculture documents, English + Telugu (+ Hindi dropped) | Agriculture documents English only |
-| Documents / pages | 101 / 3,310 | 34 / 1,175 |
+| Documents / pages | 101 / 3,310 | 25 / 1,175 |
 | Input manifest | Yes | None (generated ids) |
 | born_digital / hybrid | 2,499 (75.5%) / 92 (2.8%) | 1,061 (90.3%) / 0 |
 | scanned / blank_or_vector / needs_review | 303 (9.2%) / 233 (7.0%) / 183 (5.5%) | 69 (5.9%) / 6 (0.5%) / 39 (3.3%) |
